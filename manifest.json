@@ -1,0 +1,15 @@
+{
+  "name": "Focus Protocol",
+  "short_name": "Focus",
+  "start_url": "focus-protocol.html",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2596/2596778.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0a0a">
+<link rel="manifest" href="manifest.json">
+
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js');
+  }
+</script>
+<title>Focus Protocol</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #141414;
+    --surface2: #1e1e1e;
+    --border: rgba(255,255,255,0.08);
+    --text: #f0ede8;
+    --muted: #6b6560;
+    --accent: #b8f5a0;
+    --accent2: #f5e6a0;
+    --accent3: #a0d4f5;
+    --danger: #f5a0a0;
+    --purple: #c9a0f5;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { background: var(--bg); color: var(--text); font-family: 'Syne', sans-serif; min-height: 100vh; overflow-x: hidden; }
+
+  .app { max-width: 430px; margin: 0 auto; padding: 0 0 80px; }
+
+  /* Header */
+  .header { padding: 52px 20px 24px; position: relative; overflow: hidden; }
+  .header::before { content: ''; position: absolute; top: -40px; right: -60px; width: 200px; height: 200px; background: radial-gradient(circle, rgba(184,245,160,0.12) 0%, transparent 70%); pointer-events: none; }
+  .header-eyebrow { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 8px; }
+  .header-title { font-size: 32px; font-weight: 800; line-height: 1.1; letter-spacing: -0.02em; }
+  .header-title span { color: var(--accent); }
+  .header-sub { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); margin-top: 10px; line-height: 1.6; }
+
+  /* Tab bar */
+  .tabs { display: flex; gap: 6px; padding: 0 20px 20px; overflow-x: auto; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex-shrink: 0; font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500; padding: 7px 14px; border-radius: 20px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+  .tab.active { background: var(--accent); color: #0a0a0a; border-color: var(--accent); }
+
+  /* Sections */
+  .section { display: none; padding: 0 20px; animation: fadeIn 0.2s ease; }
+  .section.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* Cards */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px; margin-bottom: 10px; }
+  .card-label { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--muted); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 10px; }
+
+  /* Checklist */
+  .check-item { display: flex; align-items: flex-start; gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .check-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .check-item:first-child { padding-top: 0; }
+  .chk { width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid rgba(255,255,255,0.2); flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all 0.2s; margin-top: 1px; }
+  .chk.done { background: var(--accent); border-color: var(--accent); }
+  .chk.done::after { content: ''; display: block; width: 12px; height: 7px; border-left: 2px solid #0a0a0a; border-bottom: 2px solid #0a0a0a; transform: rotate(-45deg) translateY(-1px); }
+  .chk-text { font-size: 14px; line-height: 1.5; color: var(--text); transition: all 0.2s; flex: 1; }
+  .chk-text.done { color: var(--muted); text-decoration: line-through; }
+  .chk-tag { font-family: 'DM Mono', monospace; font-size: 9px; padding: 2px 7px; border-radius: 10px; margin-top: 5px; display: inline-block; }
+
+  /* Time blocks */
+  .tblock { display: flex; gap: 12px; align-items: stretch; margin-bottom: 8px; }
+  .tblock-time { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); min-width: 70px; padding-top: 14px; text-align: right; flex-shrink: 0; }
+  .tblock-line { display: flex; flex-direction: column; align-items: center; gap: 0; width: 2px; flex-shrink: 0; position: relative; }
+  .tblock-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 14px; }
+  .tblock-bar { flex: 1; width: 2px; min-height: 20px; }
+  .tblock-content { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 0; }
+  .tblock-name { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+  .tblock-note { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); line-height: 1.5; }
+
+  /* Rules */
+  .rule-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px 18px; margin-bottom: 10px; display: flex; gap: 14px; align-items: flex-start; }
+  .rule-num { font-family: 'DM Mono', monospace; font-size: 22px; font-weight: 500; line-height: 1; flex-shrink: 0; opacity: 0.3; }
+  .rule-title { font-size: 14px; font-weight: 600; margin-bottom: 5px; }
+  .rule-body { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+  /* Streak */
+  .streak-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 16px; }
+  .s-day { display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; }
+  .s-label { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--muted); }
+  .s-dot { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); display: flex; align-items: center; justify-content: center; transition: all 0.2s; font-size: 14px; }
+  .s-dot.on { background: var(--accent); border-color: var(--accent); }
+  .streak-stat { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); text-align: center; padding: 12px; background: var(--surface2); border-radius: 10px; }
+  .streak-stat span { color: var(--accent); font-size: 20px; font-weight: 500; display: block; }
+
+  /* Meter bar */
+  .focus-meter { margin-top: 6px; }
+  .fm-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .fm-label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); }
+  .fm-val { font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500; color: var(--accent); }
+  .fm-track { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .fm-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.4s ease; }
+
+  /* Timer */
+  .timer-display { text-align: center; padding: 24px 0 16px; }
+  .timer-num { font-family: 'DM Mono', monospace; font-size: 56px; font-weight: 500; color: var(--text); letter-spacing: -0.02em; line-height: 1; }
+  .timer-label { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); margin-top: 6px; letter-spacing: 0.1em; }
+  .timer-btns { display: flex; gap: 10px; justify-content: center; }
+  .tbtn { flex: 1; max-width: 120px; padding: 13px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-family: 'DM Mono', monospace; font-size: 13px; cursor: pointer; transition: all 0.15s; }
+  .tbtn.primary { background: var(--accent); color: #0a0a0a; border-color: var(--accent); font-weight: 500; }
+  .tbtn:active { transform: scale(0.97); }
+  .timer-presets { display: flex; gap: 8px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
+  .preset { font-family: 'DM Mono', monospace; font-size: 11px; padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; transition: all 0.15s; }
+  .preset.sel { border-color: var(--accent); color: var(--accent); }
+
+  /* Bottom nav */
+  .bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; background: rgba(10,10,10,0.92); backdrop-filter: blur(12px); border-top: 1px solid var(--border); display: flex; padding: 8px 0 20px; z-index: 100; }
+  .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; padding: 4px 0; }
+  .nav-icon { font-size: 20px; }
+  .nav-label { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--muted); letter-spacing: 0.05em; transition: color 0.2s; }
+  .nav-item.active .nav-label { color: var(--accent); }
+
+  .tip-strip { background: var(--surface2); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
+  .tip-strip p { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); line-height: 1.6; }
+  .tip-strip p strong { color: var(--text); font-weight: 500; }
+
+  .big-stat { text-align: center; padding: 20px 0 10px; }
+  .big-num { font-size: 64px; font-weight: 800; line-height: 1; letter-spacing: -0.04em; }
+  .big-unit { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="header">
+    <div class="header-eyebrow">deep work · cal newport protocol</div>
+    <div class="header-title">Your <span>Focus</span><br>Protocol</div>
+    <div class="header-sub">// science-based · distraction-free<br>// save to home screen for daily use</div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('detox',this)">Detox</div>
+    <div class="tab" onclick="switchTab('schedule',this)">Schedule</div>
+    <div class="tab" onclick="switchTab('rules',this)">Rules</div>
+    <div class="tab" onclick="switchTab('timer',this)">Timer</div>
+    <div class="tab" onclick="switchTab('streak',this)">Streak</div>
+    <div class="tab" onclick="switchTab('shutdown',this)">Shutdown</div>
+  </div>
+
+  <!-- DETOX -->
+  <div class="section active" id="sec-detox">
+    <div class="tip-strip"><p><strong>Do this first.</strong> These 6 steps remove 80% of your distraction triggers in under 10 minutes. Check each one off as you do it.</p></div>
+    <div class="card">
+      <div class="card-label">Emergency detox checklist</div>
+      <div id="detox-list"></div>
+    </div>
+  </div>
+
+  <!-- SCHEDULE -->
+  <div class="section" id="sec-schedule">
+    <div class="tip-strip"><p><strong>Every minute gets a job.</strong> If your plan breaks, re-plan the rest — don't abandon it. Deep work blocks go first, always.</p></div>
+    <div id="schedule-list"></div>
+  </div>
+
+  <!-- RULES -->
+  <div class="section" id="sec-rules">
+    <div class="tip-strip"><p><strong>5 iron rules.</strong> Break one and the whole protocol breaks. Know them by heart.</p></div>
+    <div id="rules-list"></div>
+  </div>
+
+  <!-- TIMER -->
+  <div class="section" id="sec-timer">
+    <div class="card">
+      <div class="card-label">Deep work timer</div>
+      <div class="timer-display">
+        <div class="timer-num" id="timer-display">90:00</div>
+        <div class="timer-label" id="timer-status">ready to focus</div>
+      </div>
+      <div class="focus-meter" style="margin-bottom: 20px;">
+        <div class="fm-row"><div class="fm-label">progress</div><div class="fm-val" id="meter-pct">0%</div></div>
+        <div class="fm-track"><div class="fm-fill" id="meter-fill" style="width:0%"></div></div>
+      </div>
+      <div class="timer-btns">
+        <div class="tbtn" id="reset-btn" onclick="resetTimer()">Reset</div>
+        <div class="tbtn primary" id="start-btn" onclick="toggleTimer()">Start</div>
+      </div>
+      <div class="timer-presets">
+        <div class="preset sel" onclick="setPreset(90,this)">90 min</div>
+        <div class="preset" onclick="setPreset(60,this)">60 min</div>
+        <div class="preset" onclick="setPreset(45,this)">45 min</div>
+        <div class="preset" onclick="setPreset(25,this)">25 min</div>
+      </div>
+    </div>
+    <div class="tip-strip"><p><strong>Phone in another room</strong> before you start. The 15-minute switching tax means one notification check = focus destroyed.</p></div>
+  </div>
+
+  <!-- STREAK -->
+  <div class="section" id="sec-streak">
+    <div class="card">
+      <div class="card-label">This week</div>
+      <div class="streak-grid" id="streak-grid"></div>
+      <div class="streak-stat">
+        <span id="streak-count">0</span>
+        deep work days this week
+      </div>
+    </div>
+    <div class="card" style="margin-top:10px;">
+      <div class="card-label">Total sessions logged</div>
+      <div class="big-stat">
+        <div class="big-num" id="total-sessions" style="color:var(--accent)">0</div>
+        <div class="big-unit">sessions completed</div>
+      </div>
+    </div>
+    <div class="tip-strip"><p>Tap a day to mark it. Aim for <strong>5 of 7 days</strong>. A session counts if you did even 30 minutes of uninterrupted deep work.</p></div>
+  </div>
+
+  <!-- SHUTDOWN -->
+  <div class="section" id="sec-shutdown">
+    <div class="tip-strip"><p><strong>Run this every evening.</strong> It closes open loops in your brain so you stop ruminating at night and wake up ready.</p></div>
+    <div class="card">
+      <div class="card-label">Evening shutdown ritual</div>
+      <div id="shutdown-list"></div>
+    </div>
+    <div class="card" style="margin-top:10px; border-color: rgba(184,245,160,0.2);">
+      <div class="card-label" style="color:var(--accent)">your off switch</div>
+      <div style="font-size:18px; font-weight:600; margin-bottom:8px;">Say aloud or write:</div>
+      <div style="font-family:'DM Mono',monospace; font-size:15px; color:var(--accent); padding:14px; background:var(--surface2); border-radius:10px; text-align:center; letter-spacing:0.05em;">"Shutdown complete."</div>
+      <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-top:10px;line-height:1.6;">This phrase is your brain's off switch. It signals that unfinished tasks are captured and tomorrow is planned — nothing left to hold.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom Nav -->
+<div class="bottom-nav">
+  <div class="nav-item active" id="nav-detox" onclick="switchTab('detox', null, 'nav-detox')">
+    <div class="nav-icon">⚡</div>
+    <div class="nav-label">Detox</div>
+  </div>
+  <div class="nav-item" id="nav-schedule" onclick="switchTab('schedule', null, 'nav-schedule')">
+    <div class="nav-icon">📅</div>
+    <div class="nav-label">Schedule</div>
+  </div>
+  <div class="nav-item" id="nav-rules" onclick="switchTab('rules', null, 'nav-rules')">
+    <div class="nav-icon">📌</div>
+    <div class="nav-label">Rules</div>
+  </div>
+  <div class="nav-item" id="nav-timer" onclick="switchTab('timer', null, 'nav-timer')">
+    <div class="nav-icon">⏱</div>
+    <div class="nav-label">Timer</div>
+  </div>
+  <div class="nav-item" id="nav-streak" onclick="switchTab('streak', null, 'nav-streak')">
+    <div class="nav-icon">🔥</div>
+    <div class="nav-label">Streak</div>
+  </div>
+  <div class="nav-item" id="nav-shutdown" onclick="switchTab('shutdown', null, 'nav-shutdown')">
+    <div class="nav-icon">🌙</div>
+    <div class="nav-label">Shutdown</div>
+  </div>
+</div>
+
+<script>
+// Data
+const detoxItems = [
+  { text: "Delete or move social media apps off your home screen", tag: "urgent", tagColor: "#f5a0a0", tagBg: "rgba(245,160,160,0.12)" },
+  { text: "Turn off ALL non-call notifications on your phone", tag: "urgent", tagColor: "#f5a0a0", tagBg: "rgba(245,160,160,0.12)" },
+  { text: "Close every browser tab except what you need right now", tag: "now", tagColor: "#f5e6a0", tagBg: "rgba(245,230,160,0.12)" },
+  { text: "Tell one person you're going into focus mode today", tag: "social", tagColor: "#a0d4f5", tagBg: "rgba(160,212,245,0.12)" },
+  { text: "Pick ONE task to work on for the next 90 minutes", tag: "key", tagColor: "#b8f5a0", tagBg: "rgba(184,245,160,0.12)" },
+  { text: "Find a physical space with no distractions or foot traffic", tag: "env", tagColor: "#c9a0f5", tagBg: "rgba(201,160,245,0.12)" },
+];
+
+const scheduleData = [
+  { time: "7:00–7:30", name: "Morning ritual", note: "No phone. Water + light + brief walk.", dot: "#6b6560", bar: "rgba(107,101,96,0.3)" },
+  { time: "7:30–9:00", name: "Deep work #1", note: "Hardest task. Phone in another room.", dot: "#b8f5a0", bar: "rgba(184,245,160,0.3)" },
+  { time: "9:00–9:15", name: "Break — do nothing", note: "Walk or sit quietly. No scrolling.", dot: "#6b6560", bar: "rgba(107,101,96,0.3)" },
+  { time: "9:15–11:00", name: "Deep work #2", note: "Second priority task.", dot: "#b8f5a0", bar: "rgba(184,245,160,0.3)" },
+  { time: "11:00–12:00", name: "Shallow tasks", note: "Email, messages, admin — batched.", dot: "#f5e6a0", bar: "rgba(245,230,160,0.3)" },
+  { time: "12:00–1:00", name: "Lunch + rest", note: "Offline. Let your brain consolidate.", dot: "#6b6560", bar: "rgba(107,101,96,0.3)" },
+  { time: "1:00–2:30", name: "Deep work #3", note: "Optional — skip if energy is low.", dot: "#b8f5a0", bar: "rgba(184,245,160,0.3)" },
+  { time: "2:30–4:00", name: "Review + learn", note: "Active recall on today's learnings.", dot: "#a0d4f5", bar: "rgba(160,212,245,0.3)" },
+  { time: "4:00–4:20", name: "Shutdown ritual", note: "Go to Shutdown tab and run it.", dot: "#f5a0a0", bar: "rgba(245,160,160,0.3)" },
+];
+
+const rulesData = [
+  { num: "01", title: "The 15-min switching tax", body: "Every notification check destroys 15 min of focus. Batch all messages to 2 windows per day — morning and afternoon.", color: "#c9a0f5" },
+  { num: "02", title: "2–3 active tasks max", body: "All other work sits in a queue. Pull a new task only when one is fully done. Never juggle more than 3.", color: "#b8f5a0" },
+  { num: "03", title: "Discomfort = growth", body: "If deep work feels hard and frustrating, that's the signal it's working. Flow is performance. Struggle is learning.", color: "#f5e6a0" },
+  { num: "04", title: "Recall, don't re-read", body: "After learning anything — close notes and write everything you remember from scratch. Highlighting does almost nothing.", color: "#a0d4f5" },
+  { num: "05", title: "Daily solitude gaps", body: "Every day must have gaps with zero input from other minds. No podcasts, no reels. This is when your brain consolidates.", color: "#f5a0a0" },
+];
+
+const shutdownItems = [
+  "Write down every unfinished task — get it out of your head",
+  "Review tomorrow's calendar — know what's coming",
+  "Set your ONE top task for tomorrow morning",
+  "Close all tabs, apps, and notifications",
+  "Write 1 thing that went well today",
+];
+
+// Build detox list
+const dl = document.getElementById('detox-list');
+detoxItems.forEach((item, i) => {
+  const el = document.createElement('div');
+  el.className = 'check-item';
+  el.innerHTML = `<div class="chk" id="dc${i}"></div><div style="flex:1"><div class="chk-text" id="dt${i}">${item.text}</div><span class="chk-tag" style="color:${item.tagColor};background:${item.tagBg};">${item.tag}</span></div>`;
+  el.onclick = () => { document.getElementById('dc'+i).classList.toggle('done'); document.getElementById('dt'+i).classList.toggle('done'); };
+  dl.appendChild(el);
+});
+
+// Build schedule
+const sl = document.getElementById('schedule-list');
+scheduleData.forEach((b, i) => {
+  const el = document.createElement('div');
+  el.className = 'tblock';
+  const isLast = i === scheduleData.length - 1;
+  el.innerHTML = `
+    <div class="tblock-time">${b.time}</div>
+    <div class="tblock-line">
+      <div class="tblock-dot" style="background:${b.dot}"></div>
+      ${!isLast ? `<div class="tblock-bar" style="background:${b.bar}"></div>` : ''}
+    </div>
+    <div class="tblock-content" style="margin-bottom:8px;">
+      <div class="tblock-name" style="color:${b.dot === '#6b6560' ? 'var(--muted)' : b.dot}">${b.name}</div>
+      <div class="tblock-note">${b.note}</div>
+    </div>`;
+  sl.appendChild(el);
+});
+
+// Build rules
+const rl = document.getElementById('rules-list');
+rulesData.forEach(r => {
+  const el = document.createElement('div');
+  el.className = 'rule-card';
+  el.innerHTML = `<div class="rule-num" style="color:${r.color};opacity:1">${r.num}</div><div><div class="rule-title" style="color:${r.color}">${r.title}</div><div class="rule-body">${r.body}</div></div>`;
+  rl.appendChild(el);
+});
+
+// Build shutdown list
+const shut = document.getElementById('shutdown-list');
+shutdownItems.forEach((s, i) => {
+  const el = document.createElement('div');
+  el.className = 'check-item';
+  el.innerHTML = `<div class="chk" id="sc${i}"></div><div class="chk-text" id="sl${i}">${s}</div>`;
+  el.onclick = () => { document.getElementById('sc'+i).classList.toggle('done'); document.getElementById('sl'+i).classList.toggle('done'); };
+  shut.appendChild(el);
+});
+
+// Build streak
+const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const grid = document.getElementById('streak-grid');
+let streakData = JSON.parse(localStorage.getItem('focusStreak') || '{}');
+const weekKey = getWeekKey();
+if (!streakData[weekKey]) streakData[weekKey] = [];
+
+days.forEach((d, i) => {
+  const el = document.createElement('div');
+  el.className = 's-day';
+  const isOn = streakData[weekKey].includes(i);
+  el.innerHTML = `<div class="s-label">${d.slice(0,1)}</div><div class="s-dot ${isOn ? 'on' : ''}" id="sd${i}">${isOn ? '✓' : ''}</div>`;
+  el.onclick = () => {
+    const dot = document.getElementById('sd'+i);
+    const idx = streakData[weekKey].indexOf(i);
+    if (idx > -1) { streakData[weekKey].splice(idx,1); dot.classList.remove('on'); dot.textContent = ''; }
+    else { streakData[weekKey].push(i); dot.classList.add('on'); dot.textContent = '✓'; }
+    localStorage.setItem('focusStreak', JSON.stringify(streakData));
+    updateStreakCount();
+  };
+  grid.appendChild(el);
+});
+
+function updateStreakCount() {
+  const count = streakData[weekKey] ? streakData[weekKey].length : 0;
+  document.getElementById('streak-count').textContent = count;
+}
+updateStreakCount();
+
+// Total sessions
+let sessions = parseInt(localStorage.getItem('totalSessions') || '0');
+document.getElementById('total-sessions').textContent = sessions;
+
+function getWeekKey() {
+  const d = new Date();
+  const jan1 = new Date(d.getFullYear(), 0, 1);
+  const week = Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+  return `${d.getFullYear()}-w${week}`;
+}
+
+// Timer
+let totalSecs = 90 * 60;
+let remaining = totalSecs;
+let running = false;
+let interval = null;
+
+function fmt(s) {
+  const m = Math.floor(s/60);
+  const sec = s % 60;
+  return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+
+function updateTimerUI() {
+  document.getElementById('timer-display').textContent = fmt(remaining);
+  const pct = Math.round(((totalSecs - remaining) / totalSecs) * 100);
+  document.getElementById('meter-fill').style.width = pct + '%';
+  document.getElementById('meter-pct').textContent = pct + '%';
+}
+
+function toggleTimer() {
+  const btn = document.getElementById('start-btn');
+  if (!running) {
+    running = true;
+    btn.textContent = 'Pause';
+    document.getElementById('timer-status').textContent = 'focusing...';
+    interval = setInterval(() => {
+      remaining--;
+      updateTimerUI();
+      if (remaining <= 0) {
+        clearInterval(interval);
+        running = false;
+        btn.textContent = 'Start';
+        document.getElementById('timer-status').textContent = 'session complete!';
+        sessions++;
+        localStorage.setItem('totalSessions', sessions);
+        document.getElementById('total-sessions').textContent = sessions;
+        if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
+      }
+    }, 1000);
+  } else {
+    clearInterval(interval);
+    running = false;
+    btn.textContent = 'Resume';
+    document.getElementById('timer-status').textContent = 'paused';
+  }
+}
+
+function resetTimer() {
+  clearInterval(interval);
+  running = false;
+  remaining = totalSecs;
+  document.getElementById('start-btn').textContent = 'Start';
+  document.getElementById('timer-status').textContent = 'ready to focus';
+  updateTimerUI();
+}
+
+function setPreset(mins, el) {
+  document.querySelectorAll('.preset').forEach(p => p.classList.remove('sel'));
+  el.classList.add('sel');
+  totalSecs = mins * 60;
+  remaining = totalSecs;
+  clearInterval(interval);
+  running = false;
+  document.getElementById('start-btn').textContent = 'Start';
+  document.getElementById('timer-status').textContent = 'ready to focus';
+  updateTimerUI();
+}
+
+// Tab switching
+function switchTab(name, tabEl, navId) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('sec-'+name).classList.add('active');
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  if (tabEl) tabEl.classList.add('active');
+  if (navId) document.getElementById(navId).classList.add('active');
+  // sync both
+  const tabMap = { detox:0, schedule:1, rules:2, timer:3, streak:4, shutdown:5 };
+  const tabs = document.querySelectorAll('.tab');
+  const navs = ['nav-detox','nav-schedule','nav-rules','nav-timer','nav-streak','nav-shutdown'];
+  tabs[tabMap[name]].classList.add('active');
+  document.getElementById(navs[tabMap[name]]).classList.add('active');
+}
+</script>
+</body>
+</html>
